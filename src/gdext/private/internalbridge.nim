@@ -76,7 +76,7 @@ proc create_instance_func[T: SomeUserClass](p_userdata: pointer; p_notify_postin
     result =  class.engineInstance
     debugCreate(class)
 
-proc free_instance_func[T: SomeUserClass](p_userdata: pointer; p_instance: pointer) {.gdcall.} =
+proc free_instance_func[T: SomeUserClass](p_userdata: pointer; p_instance: ClassInstancePtr) {.gdcall.} =
   errproof:
     let class = cast[T](p_instance)
     debugFree(class)
@@ -92,11 +92,11 @@ proc recreate_instance_func[T: SomeUserClass](p_class_userdata: pointer; p_objec
     result = cast[pointer](class)
     debugRecreate(class)
 
-proc reference_func(p_instance: pointer) {.gdcall.} =
+proc reference_func(p_instance: ClassInstancePtr) {.gdcall.} =
   errproof:
     debugReference(cast[Object](p_instance), true)
 
-proc unreference_func(p_instance: pointer) {.gdcall.} =
+proc unreference_func(p_instance: ClassInstancePtr) {.gdcall.} =
   errproof:
     debugReference(cast[Object](p_instance), false)
 
@@ -228,8 +228,12 @@ macro processExports(T: typed): untyped =
       let
         fieldIdent = field.identifier
         name = field.gdname
-        desc = field.getPragmaVal("description") or newLit ""
-        editorhint = field.getPragmaVal("gdexport") or (quote do: Appearance())
+        desc = block:
+          let v = field.getPragmaVal("description")
+          if v != nil and v.kind != nnkEmpty: v else: newLit ""
+        editorhint = block:
+          let v = field.getPragmaVal("gdexport")
+          if v != nil and v.kind != nnkEmpty: v else: (quote do: Appearance())
         gettersym = genSym(nskProc, "get_" & $fieldIdent)
         settersym = genSym(nskProc, "set_" & $fieldIdent)
         gettername  = bindSym"defaultFunctionFormatter".newCall "&".newCall(newLit"get_", name)
