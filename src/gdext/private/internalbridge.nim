@@ -222,18 +222,19 @@ macro processExports(T: typed): untyped =
   let fields = T.recList
   let eventname = ident $classIdent & "_properties"
 
+  # Helper template for pragma fallbacks
+  template getOrDefault(val, defaultVal: untyped): untyped =
+    let v = val
+    if v != nil and v.kind != nnkEmpty: v else: defaultVal
+
   result = newStmtList()
   for field in fields:
     if field.hasPragma("gdexport"):
       let
         fieldIdent = field.identifier
         name = field.gdname
-        desc = block:
-          let v = field.getPragmaVal("description")
-          if v != nil and v.kind != nnkEmpty: v else: newLit ""
-        editorhint = block:
-          let v = field.getPragmaVal("gdexport")
-          if v != nil and v.kind != nnkEmpty: v else: (quote do: Appearance())
+        desc = field.getPragmaVal("description").getOrDefault(newLit "")
+        editorhint = field.getPragmaVal("gdexport").getOrDefault(quote do: Appearance())
         gettersym = genSym(nskProc, "get_" & $fieldIdent)
         settersym = genSym(nskProc, "set_" & $fieldIdent)
         gettername  = bindSym"defaultFunctionFormatter".newCall "&".newCall(newLit"get_", name)
